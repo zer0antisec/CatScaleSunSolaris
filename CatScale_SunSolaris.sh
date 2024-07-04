@@ -454,7 +454,6 @@ end_collection(){ # Production
   echo "  Please submit the following file and SHA1 hash for analysis."
   echo " *************************************************************"
   echo " "
-  echo " "
 }
 
 #####################################################################################################
