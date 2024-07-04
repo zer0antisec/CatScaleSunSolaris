@@ -13,7 +13,6 @@
 #  - Collects system information and configuration
 #  - Enumerates and collects persistence data (programs that run either routinely or when the system starts)
 #  - Collects log data from /var/log (contains security and application logs)
-#  - Creates and records SHA1 cryptographic hashes of binary files
 # The script does this by executing local binaries on your system. It does not install or drop any binaries on your system or change configurations. 
 # This script may alter forensic artefacts, it is not recommended where evidence preservation is important.
 #
@@ -186,9 +185,6 @@ get_procinfo_Solaris(){ # Production
   ps -e > $OUTROOT/$OUTDIR/Process_and_Network/$OUTFILE-processes-e.txt
  fi
  
- echo "      Getting the process hashes..."
- find /proc/[0-9]*/object -name a.out | xargs sha1sum 2>/dev/null > $OUTROOT/$OUTDIR/Process_and_Network/$OUTFILE-processhashes.txt
- 
  echo "      Getting the process cmdline..."
  find /proc/[0-9]*/cmdline | xargs head 2>/dev/null > $OUTROOT/$OUTDIR/Process_and_Network/$OUTFILE-process-cmdline.txt
  
@@ -251,15 +247,15 @@ get_logs_Solaris(){ # Production
 
  # Collect all files in in /var/log folder.
  echo "      Collecting /var/log/ folder..."
- find /var/log -type f -print0 | xargs -0 tar -czfv $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-log.tar.gz > $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-log-list.txt
+ find /var/log -type f -print0 | xargs -0 tar -cf $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-log.tar > $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-log-list.txt
  
  # Collect all files in in /var/adm folder.
  echo "      Collecting /var/adm/ folder..."
- find /var/adm -type f -print0 | xargs -0 tar -czfv $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-adm.tar.gz  > $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-adm-list.txt
+ find /var/adm -type f -print0 | xargs -0 tar -cf $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-adm.tar > $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-adm-list.txt
 
  # Collect all files in in /var/crash folder.
  echo "      Collecting /var/crash/ folder..."
- find /var/crash -type f -print0 | xargs -0 tar -czfv $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-crash.tar.gz  > $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-crash-list.txt
+ find /var/crash -type f -print0 | xargs -0 tar -cf $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-crash.tar > $OUTROOT/$OUTDIR/Logs/$OUTFILE-var-crash-list.txt
 }
 
 #
@@ -397,7 +393,7 @@ get_cron_Solaris(){ # Production
 # Find all files with execution permissions. 
 #
 get_executables(){ # Production
- find / -xdev -type f -perm -o+rx -print0 | xargs -0 sha1sum > $OUTROOT/$OUTDIR/Misc/$OUTFILE-exec-perm-files.txt
+ find / -xdev -type f -perm -o+rx -print0 | xargs -0 ls -l > $OUTROOT/$OUTDIR/Misc/$OUTFILE-exec-perm-files.txt
 }
 
 #
@@ -406,8 +402,6 @@ get_executables(){ # Production
 get_suspicious_data(){ # Production
  # Find files in dev dir directory. Not common. Might be empty if none found
  find /dev/ -type f -print0 | xargs -0 file 2>/dev/null > $OUTROOT/$OUTDIR/Misc/$OUTFILE-dev-dir-files.txt
- # If no found there will be single entry with d41d8cd98f00b204e9800998ecf8427e - 
- find /dev/ -type f -print0 | xargs -0 sha1sum > $OUTROOT/$OUTDIR/Misc/$OUTFILE-dev-dir-files-hashes.txt
 
  # Find potential privilege escalation binaries/modifications (all Setuid Setguid binaries)
  find / -xdev -type f \( -perm -04000 -o -perm -02000 \) > $OUTROOT/$OUTDIR/Misc/$OUTFILE-Setuid-Setguid-tools.txt
@@ -417,7 +411,7 @@ get_suspicious_data(){ # Production
 # Find all files with .jsp, .asp, .aspx, .php extensions. Hash them and capture last 1000 lines.
 # 
 get_pot_webshell(){ # Production
- find / -type f \( -iname '*.jsp' -o -iname '*.asp' -o -iname '*.php' -o -iname '*.aspx' \) 2>/dev/null -print0 | xargs -0 sha1sum > $OUTROOT/$OUTDIR/Misc/$OUTFILE-pot-webshell-hashes.txt
+ find / -type f \( -iname '*.jsp' -o -iname '*.asp' -o -iname '*.php' -o -iname '*.aspx' \) 2>/dev/null -print0 | xargs -0 ls -l > $OUTROOT/$OUTDIR/Misc/$OUTFILE-pot-webshell-hashes.txt
  find / -type f \( -iname '*.jsp' -o -iname '*.asp' -o -iname '*.php' -o -iname '*.aspx' \) 2>/dev/null -print0 | xargs -0 head -1000 > $OUTROOT/$OUTDIR/Misc/$OUTFILE-pot-webshell-first-1000.txt
 }
 
@@ -428,9 +422,12 @@ end_collection(){ # Production
  # Archive/Compress files
  echo " "
  echo " Creating $OUTFILE.tar.gz "
- tar -czf $OUTROOT/$OUTFILE_PREFIX$OUTFILE.tar.gz $OUTROOT/$OUTDIR
+ tar -cf $OUTROOT/$OUTFILE_PREFIX$OUTFILE.tar $OUTROOT/$OUTDIR
  
- # Clean-up $OUTDIR directory if the tar exists
+ # Compress the tar file using gzip
+ gzip $OUTROOT/$OUTFILE_PREFIX$OUTFILE.tar
+ 
+ # Clean-up $OUTDIR directory if the tar.gz exists
  if [ -f $OUTROOT/$OUTFILE_PREFIX$OUTFILE.tar.gz ]; then
   echo " "
   echo " Cleaning up!..."
@@ -447,13 +444,12 @@ end_collection(){ # Production
   echo $OUTROOT/$OUTDIR
  fi
  
- # SHA1 the tar
-  echo " "
-  echo " *************************************************************"
-  echo "  Collection of triage data complete! "
-  echo "  Please submit the following file and SHA1 hash for analysis."
-  echo " *************************************************************"
-  echo " "
+ echo " "
+ echo " *************************************************************"
+ echo "  Collection of triage data complete! "
+ echo "  Please submit the following file for analysis."
+ echo " *************************************************************"
+ echo " "
 }
 
 #####################################################################################################
@@ -490,13 +486,14 @@ starttheshow
  get_startup_files_Solaris
  echo " - Crontabs..."
  get_cron_Solaris
- echo " - Getting all executable file hashes..."
+ echo " - Getting all executable file info..."
  get_executables
  echo " - Looking for suspicious files..."
  get_suspicious_data
- echo " - Hashing potential webshells..."
+ echo " - Checking potential webshells..."
  get_pot_webshell
 } 2>> $OUTROOT/$OUTDIR/$OUTFILE-console-error-log.txt
 
 end_collection
 exit
+
