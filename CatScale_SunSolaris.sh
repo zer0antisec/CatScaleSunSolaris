@@ -454,7 +454,7 @@ end_collection(){ # Production
   echo "  Please submit the following file and SHA1 hash for analysis."
   echo " *************************************************************"
   echo " "
- sha1sum $OUTROOT/$OUTFILE_PREFIX$OUTFILE.tar.gz
+ $OUTROOT/$OUTFILE_PREFIX$OUTFILE.tar.gz
   echo " "
 }
 
