@@ -62,8 +62,8 @@ do
 done
 
 # Force hostname format
-if hostname -s &>/dev/null; then
-	SHORTNAME=$(hostname -s)
+if hostname &>/dev/null; then
+	SHORTNAME=$(hostname)
 else
 	SHORTNAME=$(hostname)
 fi
